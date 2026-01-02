@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOEIC Memory Match - Firebase Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .firebase-status {
+            display: inline-block;
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .firebase-status.connected {
+            background: #28a745;
+        }
+
+        .firebase-status.disconnected {
+            background: #dc3545;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .level-selector {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .level-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .level-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .level-btn.easy {
+            background: #28a745;
+            color: white;
+        }
+
+        .level-btn.medium {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .level-btn.hard {
+            background: #dc3545;
+            color: white;
+        }
+
+        .level-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .game-board {
+            padding: 20px;
+            display: none;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .card {
+            aspect-ratio: 3/4;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched {
+            animation: matchAnimation 0.6s ease;
+            pointer-events: none;
+        }
+
+        @keyframes matchAnimation {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 40px;
+        }
+
+        .card-back {
+            background: white;
+            color: #333;
+            font-size: 16px;
+            transform: rotateY(180deg);
+            border: 3px solid #667eea;
+        }
+
+        .card-back.english {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .card-back.korean {
+            font-size: 18px;
+            color: #764ba2;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .game-over {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .game-over h2 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        .game-over p {
+            font-size: 18px;
+            color: #6c757d;
+            margin: 10px 0;
+        }
+
+        .leaderboard {
+            padding: 20px;
+            display: none;
+        }
+
+        .leaderboard h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .leaderboard-tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .leaderboard-item.current-user {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+        }
+
+        .leaderboard-rank {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 40px;
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            margin-left: 15px;
+            font-weight: bold;
+        }
+
+        .leaderboard-score {
+            font-size: 18px;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .login-section {
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .login-section input {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .message {
+            padding: 15px;
+            margin: 15px 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #17a2b8;
+        }
+
+
+
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-card-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+            .cards-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+
+            .card-back {
+                font-size: 14px;
+            }
+
+            .card-back.english {
+                font-size: 16px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎴 TOEIC Memory Match</h1>
+            <p>단어와 뜻을 매칭하세요!</p>
+            <div class="firebase-status" id="firebaseStatus">🔄 연결 중...</div>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <h2>환영합니다! 👋</h2>
+            <p style="margin: 20px 0; color: #6c757d;">학생 정보를 입력하고 게임을 시작하세요</p>
+            <input type="text" id="playerName" placeholder="이름을 입력하세요" maxlength="20">
+            <input type="text" id="studentId" placeholder="학번을 입력하세요" maxlength="20">
+            <br>
+            <button class="btn btn-primary" onclick="login()" style="margin-top: 20px;">시작하기 🚀</button>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats" id="statsSection" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-label">시간</div>
+                <div class="stat-value" id="timer">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">점수</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">매칭</div>
+                <div class="stat-value" id="matches">0</div>
+            </div>
+        </div>
+
+        <!-- Level Selector -->
+        <div class="level-selector" id="levelSelector" style="display: none;">
+            <h2 style="margin-bottom: 20px; color: #667eea;">난이도를 선택하세요</h2>
+            <div class="level-buttons">
+                <button class="level-btn easy" onclick="startGame('easy')">
+                    초급 (6쌍)<br>
+                    <small>기초 단어</small>
+                </button>
+                <button class="level-btn medium" onclick="startGame('medium')">
+                    중급 (8쌍)<br>
+                    <small>일반 단어</small>
+                </button>
+                <button class="level-btn hard" onclick="startGame('hard')">
+                    고급 (10쌍)<br>
+                    <small>고난도 단어</small>
+                </button>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="showLeaderboard()">🏆 리더보드</button>
+                <button class="btn btn-secondary" onclick="showStats()">📊 통계</button>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div class="game-board" id="gameBoard">
+            <div class="cards-grid" id="cardsGrid"></div>
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="resetGame()">다시 시작</button>
+                <button class="btn btn-secondary" onclick="backToMenu()">메뉴로</button>
+            </div>
+        </div>
+
+        <!-- Game Over -->
+        <div class="game-over" id="gameOver">
+            <h2>🎉 게임 완료!</h2>
+            <p>걸린 시간: <span id="finalTime"></span>초</p>
+            <p>최종 점수: <span id="finalScore"></span>점</p>
+            <p id="rankMessage"></p>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="resetGame()">다시 하기</button>
+                <button class="btn btn-secondary" onclick="backToMenu()">메뉴로</button>
+                <button class="btn btn-secondary" onclick="showLeaderboard()">🏆 리더보드</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="leaderboard" id="leaderboard">
+            <h2>🏆 리더보드</h2>
+            <div class="leaderboard-tabs">
+                <button class="tab-btn active" onclick="changeLeaderboardTab('all')">전체</button>
+                <button class="tab-btn" onclick="changeLeaderboardTab('easy')">🟢 초급</button>
+                <button class="tab-btn" onclick="changeLeaderboardTab('medium')">🟡 중급</button>
+                <button class="tab-btn" onclick="changeLeaderboardTab('hard')">🔴 고급</button>
+            </div>
+            <div id="leaderboardList"></div>
+            <div class="controls" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="backToMenu()">메뉴로</button>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats-overview" id="statsOverview" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-card-value" id="totalPlayers">0</div>
+                <div class="stat-card-label">총 플레이어</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" id="totalGames">0</div>
+                <div class="stat-card-label">총 게임 수</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" id="avgScore">0</div>
+                <div class="stat-card-label">평균 점수</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" id="topScore">0</div>
+                <div class="stat-card-label">최고 점수</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // TOEIC 단어 데이터베이스
+        const wordDatabase = {
+            easy: [
+                { english: 'account', korean: '계좌, 설명' },
+                { english: 'benefit', korean: '이익, 혜택' },
+                { english: 'client', korean: '고객, 의뢰인' },
+                { english: 'deliver', korean: '배달하다' },
+                { english: 'employee', korean: '직원' },
+                { english: 'facility', korean: '시설' },
+                { english: 'schedule', korean: '일정' },
+                { english: 'manager', korean: '관리자' },
+                { english: 'payment', korean: '지불' },
+                { english: 'service', korean: '서비스' },
+                { english: 'product', korean: '제품' },
+                { english: 'office', korean: '사무실' }
+            ],
+            medium: [
+                { english: 'accomplish', korean: '성취하다' },
+                { english: 'adequate', korean: '적절한' },
+                { english: 'allocate', korean: '할당하다' },
+                { english: 'budget', korean: '예산' },
+                { english: 'consumer', korean: '소비자' },
+                { english: 'deadline', korean: '마감일' },
+                { english: 'expense', korean: '비용' },
+                { english: 'implement', korean: '실행하다' },
+                { english: 'negotiate', korean: '협상하다' },
+                { english: 'proposal', korean: '제안서' },
+                { english: 'revenue', korean: '수익' },
+                { english: 'strategy', korean: '전략' },
+                { english: 'purchase', korean: '구매하다' },
+                { english: 'inventory', korean: '재고' }
+            ],
+            hard: [
+                { english: 'acquisition', korean: '인수, 획득' },
+                { english: 'benchmark', korean: '기준점' },
+                { english: 'comprehensive', korean: '포괄적인' },
+                { english: 'deteriorate', korean: '악화되다' },
+                { english: 'elaborate', korean: '정교한' },
+                { english: 'fluctuate', korean: '변동하다' },
+                { english: 'infrastructure', korean: '기반시설' },
+                { english: 'jurisdiction', korean: '관할권' },
+                { english: 'leverage', korean: '영향력' },
+                { english: 'merger', korean: '합병' },
+                { english: 'obsolete', korean: '구식의' },
+                { english: 'preliminary', korean: '예비의' },
+                { english: 'reconcile', korean: '조정하다' },
+                { english: 'subsidiary', korean: '자회사' },
+                { english: 'terminate', korean: '종료하다' }
+            ]
+        };
+
+        // Firebase 설정 (여기에 실제 Firebase 프로젝트 정보를 입력하세요)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkk4hv2lV4xa0rxZWa8rGMtVCsv_IhU_g",
+  authDomain: "toeic-study-4c3e6.firebaseapp.com",
+  databaseURL: "https://toeic-study-4c3e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "toeic-study-4c3e6",
+  storageBucket: "toeic-study-4c3e6.firebasestorage.app",
+  messagingSenderId: "5466579220",
+  appId: "1:5466579220:web:9e2342fb5c08e2f628a201"
+        };
+
+        // Firebase 및 게임 상태
+        let firebaseApp = null;
+        let database = null;
+        let currentLeaderboardTab = 'all';
+        
+        let gameState = {
+            playerName: '',
+            studentId: '',
+            userId: '',
+            currentLevel: '',
+            cards: [],
+            flippedCards: [],
+            matchedPairs: 0,
+            score: 0,
+            timeElapsed: 0,
+            timerInterval: null,
+            moves: 0
+        };
+
+        // Firebase 초기화 (자동 실행)
+        function initializeFirebase() {
+            try {
+                // Firebase 초기화
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+
+                // 연결 테스트
+                database.ref('.info/connected').on('value', (snapshot) => {
+                    if (snapshot.val() === true) {
+                        document.getElementById('firebaseStatus').textContent = '✅ 연결됨';
+                        document.getElementById('firebaseStatus').className = 'firebase-status connected';
+                    } else {
+                        document.getElementById('firebaseStatus').textContent = '❌ 연결 끊김';
+                        document.getElementById('firebaseStatus').className = 'firebase-status disconnected';
+                    }
+                });
+
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                document.getElementById('firebaseStatus').textContent = '⚠️ 오프라인 모드';
+                document.getElementById('firebaseStatus').className = 'firebase-status disconnected';
+                // Firebase 없이도 게임 진행 가능
+            }
+        }
+
+        // 페이지 로드 시 Firebase 자동 초기화
+        window.onload = function() {
+            initializeFirebase();
+        };
+
+        // 로그인
+        function login() {
+            const name = document.getElementById('playerName').value.trim();
+            const studentId = document.getElementById('studentId').value.trim();
+            
+            if (!name) {
+                showMessage('이름을 입력해주세요!', 'error');
+                return;
+            }
+
+            if (!studentId) {
+                showMessage('학번을 입력해주세요!', 'error');
+                return;
+            }
+            
+            gameState.playerName = name;
+            gameState.studentId = studentId;
+            gameState.userId = studentId; // 학번을 고유 ID로 사용
+            
+            // Firebase에 사용자 정보 저장/업데이트 (연결되어 있으면)
+            if (database) {
+                database.ref('users/' + gameState.userId).update({
+                    name: name,
+                    studentId: studentId,
+                    lastLogin: firebase.database.ServerValue.TIMESTAMP
+                }).catch(err => {
+                    console.log('Firebase 저장 실패 (오프라인 모드):', err);
+                });
+            }
+            
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('levelSelector').style.display = 'block';
+            document.getElementById('statsSection').style.display = 'flex';
+            
+            showMessage(`환영합니다, ${name}님! 🎉`, 'success');
+        }
+
+        // 메시지 표시
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+            
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // 게임 시작
+        function startGame(level) {
+            gameState.currentLevel = level;
+            gameState.matchedPairs = 0;
+            gameState.score = 0;
+            gameState.timeElapsed = 0;
+            gameState.moves = 0;
+            gameState.flippedCards = [];
+            
+            const pairCount = level === 'easy' ? 6 : level === 'medium' ? 8 : 10;
+            const words = getRandomWords(level, pairCount);
+            
+            createCards(words);
+            
+            document.getElementById('levelSelector').style.display = 'none';
+            document.getElementById('gameBoard').style.display = 'block';
+            document.getElementById('gameOver').style.display = 'none';
+            
+            updateStats();
+            startTimer();
+        }
+
+        // 랜덤 단어 선택
+        function getRandomWords(level, count) {
+            const allWords = [...wordDatabase[level]];
+            const selected = [];
+            
+            for (let i = 0; i < count; i++) {
+                const randomIndex = Math.floor(Math.random() * allWords.length);
+                selected.push(allWords.splice(randomIndex, 1)[0]);
+            }
+            
+            return selected;
+        }
+
+        // 카드 생성
+        function createCards(words) {
+            const cards = [];
+            
+            words.forEach((word, index) => {
+                cards.push({
+                    id: `eng-${index}`,
+                    type: 'english',
+                    text: word.english,
+                    pair: index
+                });
+            });
+            
+            words.forEach((word, index) => {
+                cards.push({
+                    id: `kor-${index}`,
+                    type: 'korean',
+                    text: word.korean,
+                    pair: index
+                });
+            });
+            
+            shuffleArray(cards);
+            gameState.cards = cards;
+            
+            renderCards();
+        }
+
+        // 배열 섞기
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // 카드 렌더링
+        function renderCards() {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+            
+            gameState.cards.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card';
+                cardEl.dataset.index = index;
+                cardEl.onclick = () => flipCard(index);
+                
+                cardEl.innerHTML = `
+                    <div class="card-face card-front">🎴</div>
+                    <div class="card-face card-back ${card.type}">
+                        ${card.text}
+                    </div>
+                `;
+                
+                grid.appendChild(cardEl);
+            });
+        }
+
+        // 카드 뒤집기
+        function flipCard(index) {
+            const card = gameState.cards[index];
+            const cardEl = document.querySelectorAll('.card')[index];
+            
+            if (cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) {
+                return;
+            }
+            
+            if (gameState.flippedCards.length >= 2) {
+                return;
+            }
+            
+            cardEl.classList.add('flipped');
+            gameState.flippedCards.push({ index, card });
+            
+            if (gameState.flippedCards.length === 2) {
+                gameState.moves++;
+                setTimeout(checkMatch, 800);
+            }
+        }
+
+        // 매칭 체크
+        function checkMatch() {
+            const [first, second] = gameState.flippedCards;
+            const firstEl = document.querySelectorAll('.card')[first.index];
+            const secondEl = document.querySelectorAll('.card')[second.index];
+            
+            if (first.card.pair === second.card.pair) {
+                firstEl.classList.add('matched');
+                secondEl.classList.add('matched');
+                
+                gameState.matchedPairs++;
+                gameState.score += 100;
+                
+                showMessage('맞았습니다! 🎉', 'success');
+                updateStats();
+                
+                if (gameState.matchedPairs === gameState.cards.length / 2) {
+                    setTimeout(endGame, 500);
+                }
+            } else {
+                firstEl.classList.remove('flipped');
+                secondEl.classList.remove('flipped');
+            }
+            
+            gameState.flippedCards = [];
+        }
+
+        // 타이머 시작
+        function startTimer() {
+            gameState.timerInterval = setInterval(() => {
+                gameState.timeElapsed++;
+                updateStats();
+            }, 1000);
+        }
+
+        // 통계 업데이트
+        function updateStats() {
+            document.getElementById('timer').textContent = gameState.timeElapsed;
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('matches').textContent = `${gameState.matchedPairs}/${gameState.cards.length / 2}`;
+        }
+
+        // 게임 종료
+        async function endGame() {
+            clearInterval(gameState.timerInterval);
+            
+            const timeBonus = Math.max(0, 300 - gameState.timeElapsed * 2);
+            gameState.score += timeBonus;
+            
+            document.getElementById('finalTime').textContent = gameState.timeElapsed;
+            document.getElementById('finalScore').textContent = gameState.score;
+            
+            // Firebase에 점수 저장
+            await saveScoreToFirebase();
+            
+            document.getElementById('gameBoard').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'block';
+            
+            showMessage('게임 완료! 🎊', 'success');
+        }
+
+        // Firebase에 점수 저장
+        async function saveScoreToFirebase() {
+            if (!database) {
+                // Firebase 없으면 로컬 스토리지에 저장
+                const localScores = JSON.parse(localStorage.getItem('toeic_scores') || '[]');
+                localScores.push({
+                    userId: gameState.userId,
+                    name: gameState.playerName,
+                    studentId: gameState.studentId,
+                    score: gameState.score,
+                    time: gameState.timeElapsed,
+                    level: gameState.currentLevel,
+                    moves: gameState.moves,
+                    timestamp: new Date().getTime()
+                });
+                localScores.sort((a, b) => b.score - a.score);
+                localStorage.setItem('toeic_scores', JSON.stringify(localScores.slice(0, 100)));
+                return;
+            }
+
+            const scoreData = {
+                userId: gameState.userId,
+                name: gameState.playerName,
+                studentId: gameState.studentId,
+                score: gameState.score,
+                time: gameState.timeElapsed,
+                level: gameState.currentLevel,
+                moves: gameState.moves,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            try {
+                // scores 컬렉션에 저장
+                const newScoreRef = database.ref('scores').push();
+                await newScoreRef.set(scoreData);
+
+                // 사용자별 최고 점수 업데이트
+                const userScoresRef = database.ref(`userScores/${gameState.userId}/${gameState.currentLevel}`);
+                const snapshot = await userScoresRef.once('value');
+                const currentBest = snapshot.val();
+
+                if (!currentBest || gameState.score > currentBest.score) {
+                    await userScoresRef.set(scoreData);
+                }
+
+                showMessage('점수가 저장되었습니다! 🎉', 'success');
+            } catch (error) {
+                console.error('Score save error:', error);
+                showMessage('점수 저장 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // 리더보드 표시
+        async function showLeaderboard() {
+            document.getElementById('levelSelector').style.display = 'none';
+            document.getElementById('gameBoard').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('leaderboard').style.display = 'block';
+            
+            await loadLeaderboard(currentLeaderboardTab);
+        }
+
+        // 리더보드 탭 변경
+        function changeLeaderboardTab(tab) {
+            currentLeaderboardTab = tab;
+            
+            // 탭 버튼 활성화 상태 변경
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadLeaderboard(tab);
+        }
+
+        // 리더보드 로드
+        async function loadLeaderboard(level) {
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '<div class="loading"><div class="spinner"></div><p>로딩 중...</p></div>';
+
+            if (!database) {
+                // 오프라인 모드: 로컬 스토리지에서 로드
+                const localScores = JSON.parse(localStorage.getItem('toeic_scores') || '[]');
+                let filteredScores = localScores;
+                
+                if (level !== 'all') {
+                    filteredScores = localScores.filter(s => s.level === level);
+                }
+                
+                list.innerHTML = '';
+                
+                if (filteredScores.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; padding: 40px; color: #6c757d;">아직 기록이 없습니다.</p>';
+                } else {
+                    displayLeaderboardItems(filteredScores.slice(0, 20), list);
+                }
+                return;
+            }
+
+            try {
+                let query;
+                if (level === 'all') {
+                    query = database.ref('scores').orderByChild('score').limitToLast(50);
+                } else {
+                    query = database.ref('scores').orderByChild('level').equalTo(level).limitToLast(50);
+                }
+
+                const snapshot = await query.once('value');
+                const scores = [];
+
+                snapshot.forEach((childSnapshot) => {
+                    scores.push(childSnapshot.val());
+                });
+
+                // 점수 순으로 정렬
+                scores.sort((a, b) => b.score - a.score);
+
+                list.innerHTML = '';
+
+                if (scores.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; padding: 40px; color: #6c757d;">아직 기록이 없습니다.</p>';
+                } else {
+                    displayLeaderboardItems(scores.slice(0, 20), list);
+                }
+            } catch (error) {
+                console.error('Leaderboard load error:', error);
+                list.innerHTML = '<p style="text-align: center; padding: 40px; color: #dc3545;">리더보드를 불러올 수 없습니다.</p>';
+            }
+        }
+
+        // 리더보드 아이템 표시 (공통 함수)
+        function displayLeaderboardItems(scores, listElement) {
+            scores.forEach((score, index) => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                
+                if (score.userId === gameState.userId) {
+                    item.classList.add('current-user');
+                }
+                
+                let medal = '';
+                if (index === 0) medal = '🥇';
+                else if (index === 1) medal = '🥈';
+                else if (index === 2) medal = '🥉';
+                
+                const levelBadge = score.level === 'easy' ? '🟢' : score.level === 'medium' ? '🟡' : '🔴';
+                
+                item.innerHTML = `
+                    <div class="leaderboard-rank">${medal || (index + 1)}</div>
+                    <div class="leaderboard-name">
+                        ${score.name}
+                        ${score.studentId ? `<br><small style="color: #6c757d;">${score.studentId}</small>` : ''}
+                    </div>
+                    <div>
+                        ${levelBadge}
+                        <div class="leaderboard-score">${score.score}점</div>
+                        <small style="color: #6c757d;">${score.time}초</small>
+                    </div>
+                `;
+                listElement.appendChild(item);
+            });
+        }
+
+        // 통계 보기
+        async function showStats() {
+            document.getElementById('levelSelector').style.display = 'none';
+            document.getElementById('statsOverview').style.display = 'grid';
+
+            if (!database) {
+                // 오프라인 모드
+                const localScores = JSON.parse(localStorage.getItem('toeic_scores') || '[]');
+                const uniqueUsers = new Set(localScores.map(s => s.userId));
+                
+                document.getElementById('totalPlayers').textContent = uniqueUsers.size;
+                document.getElementById('totalGames').textContent = localScores.length;
+                
+                if (localScores.length > 0) {
+                    const totalScore = localScores.reduce((sum, s) => sum + s.score, 0);
+                    const avgScore = Math.round(totalScore / localScores.length);
+                    const maxScore = Math.max(...localScores.map(s => s.score));
+                    
+                    document.getElementById('avgScore').textContent = avgScore;
+                    document.getElementById('topScore').textContent = maxScore;
+                } else {
+                    document.getElementById('avgScore').textContent = 0;
+                    document.getElementById('topScore').textContent = 0;
+                }
+                return;
+            }
+
+            try {
+                // 총 플레이어 수
+                const usersSnapshot = await database.ref('users').once('value');
+                const totalPlayers = usersSnapshot.numChildren();
+                document.getElementById('totalPlayers').textContent = totalPlayers;
+
+                // 총 게임 수
+                const scoresSnapshot = await database.ref('scores').once('value');
+                const totalGames = scoresSnapshot.numChildren();
+                document.getElementById('totalGames').textContent = totalGames;
+
+                // 평균 점수 및 최고 점수
+                let totalScore = 0;
+                let maxScore = 0;
+                scoresSnapshot.forEach((child) => {
+                    const score = child.val().score;
+                    totalScore += score;
+                    if (score > maxScore) maxScore = score;
+                });
+
+                const avgScore = totalGames > 0 ? Math.round(totalScore / totalGames) : 0;
+                document.getElementById('avgScore').textContent = avgScore;
+                document.getElementById('topScore').textContent = maxScore;
+
+            } catch (error) {
+                console.error('Stats load error:', error);
+                showMessage('통계를 불러올 수 없습니다.', 'error');
+            }
+        }
+
+        // 게임 리셋
+        function resetGame() {
+            clearInterval(gameState.timerInterval);
+            startGame(gameState.currentLevel);
+        }
+
+        // 메뉴로 돌아가기
+        function backToMenu() {
+            clearInterval(gameState.timerInterval);
+            document.getElementById('gameBoard').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('leaderboard').style.display = 'none';
+            document.getElementById('statsOverview').style.display = 'none';
+            document.getElementById('levelSelector').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
